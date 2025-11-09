@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>HoloDesk — Magic Toolbox (IndexedDB + ffmpeg.wasm)</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" role="navigation" aria-label="Primary">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">HD</div>
+        <div class="brand-text">
+          <h1>HoloDesk</h1>
+          <p class="muted">Personal Workspace · Magic Toolbox</p>
+        </div>
+      </div>
+
+      <nav class="main-nav" aria-label="Main">
+        <button id="tab-workspace" aria-pressed="true">Workspace</button>
+        <button id="tab-tools" aria-pressed="false">Tools</button>
+        <button id="tab-converter" aria-pressed="false">Converter</button>
+        <button id="tab-storage" aria-pressed="false">Storage Editor</button>
+      </nav>
+
+      <div class="quick-actions" aria-hidden="false">
+        <button id="btn-new-note" class="btn">New Note</button>
+        <button id="btn-new-task" class="btn">New Task</button>
+      </div>
+
+      <div class="sidebar-footer">
+        <button id="export-all" class="btn small">Export All Metadata</button>
+        <button id="import-all" class="btn small">Import Metadata</button>
+        <input id="import-file" type="file" accept=".json" hidden>
+        <div class="muted small">Local-only • No account</div>
+      </div>
+    </aside>
+
+    <main class="main" id="main">
+      <!-- Workspace -->
+      <section id="workspace" class="panel" aria-labelledby="workspace-heading">
+        <header class="panel-header">
+          <h2 id="workspace-heading">Workspace</h2>
+          <div class="muted">Notes, tasks, snippets — autosaved locally</div>
+        </header>
+
+        <div class="cols">
+          <section class="card" id="notesCard" aria-labelledby="notesHeading">
+            <div class="card-head">
+              <h3 id="notesHeading">Notes</h3>
+              <div class="actions">
+                <button id="btnSaveNote" class="btn">Save</button>
+                <button id="btnClearNote" class="btn">Clear</button>
+              </div>
+            </div>
+            <textarea id="noteEditor" aria-label="Note editor" placeholder="Write a note..."></textarea>
+
+            <div class="saved-list" id="notesList" aria-live="polite"></div>
+          </section>
+
+          <section class="card" id="tasksCard" aria-labelledby="tasksHeading">
+            <div class="card-head">
+              <h3 id="tasksHeading">Tasks</h3>
+            </div>
+
+            <div class="task-input">
+              <input id="taskInput" placeholder="New task" aria-label="New task">
+              <button id="addTask" class="btn">Add</button>
+            </div>
+
+            <ul id="taskList" class="task-list" aria-live="polite"></ul>
+          </section>
+        </div>
+
+        <section class="card" id="snippetsCard" aria-labelledby="snipHeading">
+          <div class="card-head">
+            <h3 id="snipHeading">Snippets / Clipboard</h3>
+          </div>
+          <div class="snippet-controls">
+            <input id="snippetInput" placeholder="Paste snippet" aria-label="Snippet input">
+            <button id="saveSnippet" class="btn">Save</button>
+          </div>
+          <div id="snippets" class="saved-list"></div>
+        </section>
+      </section>
+
+      <!-- Tools -->
+      <section id="tools" class="panel hidden" aria-labelledby="tools-heading">
+        <header class="panel-header">
+          <h2 id="tools-heading">Magic Toolbox</h2>
+          <div class="muted">Color picker, unit conversions, QR, hashing</div>
+        </header>
+
+        <div class="grid">
+          <div class="card" id="colorCard">
+            <h3>Color Picker</h3>
+            <div class="color-grid" id="colorGrid" role="list" aria-label="Color presets"></div>
+            <div class="color-controls">
+              <label for="customColor">Custom HEX</label>
+              <input id="customColor" type="text" placeholder="#8b5cff" aria-label="Custom color hex">
+              <button id="applyCustomColor" class="btn">Apply</button>
+              <button id="copyColor" class="btn">Copy Hex</button>
+            </div>
+          </div>
+
+          <div class="card" id="unitCard">
+            <h3>Unit Converter</h3>
+            <div class="unit-row">
+              <input id="ucValue" type="number" placeholder="Value">
+              <select id="ucFrom" aria-label="From unit">
+                <option value="m">meters</option><option value="km">kilometers</option><option value="ft">feet</option><option value="mi">miles</option>
+              </select>
+              <select id="ucTo" aria-label="To unit">
+                <option value="ft">feet</option><option value="m">meters</option><option value="km">kilometers</option><option value="mi">miles</option>
+              </select>
+              <button id="ucConvert" class="btn">Convert</button>
+            </div>
+            <div id="ucResult" class="muted"></div>
+          </div>
+
+          <div class="card" id="textCard">
+            <h3>Text Analyzer & Hash</h3>
+            <textarea id="textToAnalyze" placeholder="Paste text..."></textarea>
+            <div class="row">
+              <button id="analyzeBtn" class="btn">Analyze</button>
+              <button id="hashBtn" class="btn">SHA-256</button>
+            </div>
+            <div id="textResult" class="muted"></div>
+            <div id="hashResult" class="muted small"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Converter -->
+      <section id="converter" class="panel hidden" aria-labelledby="converter-heading">
+        <header class="panel-header">
+          <h2 id="converter-heading">Media Converter (client-side)</h2>
+          <div class="muted">Uses ffmpeg.wasm. Converted files stored locally (IndexedDB).</div>
+        </header>
+
+        <div class="card">
+          <label for="mediaFile">Choose audio/video file</label>
+          <input id="mediaFile" type="file" accept="audio/*,video/*">
+          <label for="outFormat">Output format</label>
+          <select id="outFormat">
+            <optgroup label="Audio">
+              <option value="mp3">mp3</option>
+              <option value="wav">wav</option>
+              <option value="ogg">ogg</option>
+              <option value="aac">aac</option>
+              <option value="flac">flac</option>
+            </optgroup>
+            <optgroup label="Video">
+              <option value="mp4">mp4</option>
+              <option value="webm">webm</option>
+              <option value="ogv">ogv</option>
+            </optgroup>
+          </select>
+
+          <div class="row">
+            <button id="startFF" class="btn primary">Start Conversion</button>
+            <button id="cancelFF" class="btn">Cancel</button>
+          </div>
+
+          <div id="ffStatus" class="muted">FFmpeg: idle</div>
+          <div id="ffProgress" class="progress"><div id="ffProgressInner" class="progress-inner"></div></div>
+          <pre id="ffLog" class="log" aria-live="polite"></pre>
+        </div>
+
+        <section class="card" id="convertedFilesCard">
+          <h3>Converted Files</h3>
+          <div id="convertedList" class="saved-list"></div>
+        </section>
+      </section>
+
+      <!-- Storage editor -->
+      <section id="storageEditor" class="panel hidden" aria-labelledby="storage-heading">
+        <header class="panel-header">
+          <h2 id="storage-heading">Local Storage Editor</h2>
+          <div class="muted">View and edit items stored in localStorage (notes, snippets, settings).</div>
+        </header>
+
+        <div class="card">
+          <label for="lsSelect">Select key</label>
+          <select id="lsSelect"></select>
+          <label for="lsContent">Edit JSON</label>
+          <textarea id="lsContent" spellcheck="false"></textarea>
+          <div class="row">
+            <button id="lsSave" class="btn primary">Save</button>
+            <button id="lsDelete" class="btn">Delete Key</button>
+            <button id="lsRefresh" class="btn">Refresh Keys</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ffmpeg.wasm from CDN -->
+  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
